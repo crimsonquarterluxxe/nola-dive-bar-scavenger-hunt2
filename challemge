@@ -1,0 +1,197 @@
+// Main application logic
+class ScavengerHunt {
+    constructor() {
+        this.totalScore = 0;
+        this.completedChallenges = new Set();
+        this.storage = new LocalStorage();
+        this.init();
+    }
+
+    init() {
+        this.loadProgress();
+        this.bindEvents();
+        this.updateUI();
+    }
+
+    loadProgress() {
+        const saved = this.storage.getProgress();
+        if (saved) {
+            this.totalScore = saved.totalScore || 0;
+            this.completedChallenges = new Set(saved.completedChallenges || []);
+        }
+    }
+
+    saveProgress() {
+        this.storage.saveProgress({
+            totalScore: this.totalScore,
+            completedChallenges: Array.from(this.completedChallenges),
+            lastUpdated: new Date().toISOString()
+        });
+    }
+
+    toggleChallenge(element, points) {
+        const checkbox = element.querySelector('.completion-checkbox');
+        const challengeText = element.querySelector('.challenge-text').textContent;
+        
+        if (element.classList.contains('completed')) {
+            this.uncompleteChallenge(element, points, challengeText);
+        } else {
+            this.completeChallenge(element, points, challengeText);
+        }
+        
+        this.updateUI();
+        this.saveProgress();
+    }
+
+    completeChallenge(element, points, challengeText) {
+        element.classList.add('completed');
+        element.querySelector('.completion-checkbox').checked = true;
+        this.totalScore += points;
+        this.completedChallenges.add(challengeText);
+        
+        // Show completion animation
+        this.showCompletionEffect(element);
+    }
+
+    uncompleteChallenge(element, points, challengeText) {
+        element.classList.remove('completed');
+        element.querySelector('.completion-checkbox').checked = false;
+        this.totalScore -= points;
+        this.completedChallenges.delete(challengeText);
+    }
+
+    updateUI() {
+        this.updateScore();
+        this.updateAchievements();
+        this.updateLeaderboard();
+    }
+
+    updateScore() {
+        const scoreElement = document.getElementById('totalScore');
+        if (scoreElement) {
+            scoreElement.textContent = this.totalScore + ' Points';
+        }
+        
+        const levelElement = document.getElementById('currentLevel');
+        if (levelElement) {
+            if (this.totalScore >= 500) {
+                levelElement.textContent = 'Dive Bar Legend';
+                levelElement.className = 'achievement-level legend';
+            } else if (this.totalScore >= 250) {
+                levelElement.textContent = 'Honorary Local';
+                levelElement.className = 'achievement-level honorary';
+            } else {
+                levelElement.textContent = 'Rookie Explorer';
+                levelElement.className = 'achievement-level rookie';
+            }
+        }
+    }
+
+    updateAchievements() {
+        // Achievement logic here
+        const achievements = {
+            'badge-rookie': this.totalScore >= 125,
+            'badge-honorary': this.totalScore >= 250,
+            'badge-legend': this.totalScore >= 500,
+            'badge-social': this.checkSocialBadge(),
+            'badge-foodie': this.checkFoodieBadge(),
+            'badge-night-owl': this.checkNightOwlBadge(),
+            'badge-explorer': this.checkExplorerBadge(),
+            'badge-legend-status': this.checkLegendStatusBadge()
+        };
+
+        Object.entries(achievements).forEach(([badgeId, earned]) => {
+            const badge = document.getElementById(badgeId);
+            if (badge) {
+                badge.classList.toggle('earned', earned);
+            }
+        });
+    }
+
+    checkSocialBadge() {
+        const socialChallenges = [
+            'Learn Local Slang from a Regular',
+            'Share a Story with a Bartender',
+            'Toast with Strangers',
+            'Buy a Round for Locals'
+        ];
+        let count = 0;
+        socialChallenges.forEach(challenge => {
+            if (this.completedChallenges.has(challenge)) count++;
+        });
+        return count >= 3;
+    }
+
+    // Add other badge check methods...
+
+    showCompletionEffect(element) {
+        element.style.transform = 'scale(1.05)';
+        element.style.transition = 'transform 0.3s ease';
+        setTimeout(() => {
+            element.style.transform = 'scale(1)';
+        }, 300);
+    }
+
+    bindEvents() {
+        // Bind challenge click events
+        document.querySelectorAll('.challenge-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const points = parseInt(item.querySelector('.challenge-points').textContent);
+                this.toggleChallenge(item, points);
+            });
+        });
+
+        // Bind share buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('share-button')) {
+                const platform = e.target.textContent.toLowerCase();
+                this.shareProgress(platform);
+            }
+        });
+    }
+
+    shareProgress(platform) {
+        const level = document.getElementById('currentLevel').textContent;
+        const text = `Just earned ${this.totalScore} points as a ${level} in the NOLA Dive Bar Scavenger Hunt! 🍺🏆 #CrimsonQuarterNOLA #NOLADiveBars #WeddingBarCrawl`;
+        
+        switch(platform) {
+            case 'instagram':
+                this.shareToInstagram(text);
+                break;
+            case 'facebook':
+                this.shareToFacebook(text);
+                break;
+            case 'twitter':
+                this.shareToTwitter(text);
+                break;
+        }
+    }
+
+    shareToInstagram(text) {
+        if (navigator.share) {
+            navigator.share({
+                title: 'NOLA Dive Bar Adventure',
+                text: text,
+                url: window.location.href
+            });
+        } else {
+            navigator.clipboard.writeText(text);
+            alert('Caption copied to clipboard! Paste it in your Instagram post.');
+        }
+    }
+
+    shareToFacebook(text) {
+        const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
+    }
+
+    shareToTwitter(text) {
+        const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`;
+        window.open(url, '_blank');
+    }
+}
+
+// Initialize app when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    window.scavengerHunt = new ScavengerHunt();
+});
